@@ -25,9 +25,9 @@ SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 #%% Constants
 AWS_BUCKET_NAME = "jdscurema"
 MOUNT_NAME = "rawdata"
-APPS_S3 = "s3n://jdscurema/20190628/google-playstore-apps.csv"
+#APPS_S3 = "s3n://jdscurema/20190628/google-playstore-apps.csv"
 #REVIEWS_S3 = "s3n://jdscurema/20190628/google-playstore-user-reviews.csv"
-APPS = "/home/alaba/sparkProjects/jds/googleplaystore.csv"
+APPS_LOCAL = "/home/alaba/sparkProjects/jds/googleplaystore.csv"
 REVIEWS = "/home/alaba/sparkProjects/jds/googleplaystore_user_reviews.csv"
 
 
@@ -84,7 +84,7 @@ appDf = rawAppDf.withColumn('App', cleanAlpha('App')) \
         .withColumn('Installs', col('Installs').cast(IntegerType())) \
         .dropna(how ='any', subset=['Rating', 'App', 'Category']) 
 
-appDf.show(123)
+# appDf.show(123)
 #data = data.dropna() # drop rows with missing value
 #data.cache() # Cache data for faster reuses
 
@@ -110,17 +110,18 @@ sentimentsDf = toptenDf.join(reviewDf, "app") \
     .drop('sentiment'). drop('translated_review')               .groupBy("app").sum()                 .withColumnRenamed('sum(positive)', 'positive_sentiment')                .withColumnRenamed('sum(negative)', 'negative_sentiment')
 
 #%%
+cleanWord = udf(lambda x: re.sub(r'\W+', '', x))
 linesDf = reviewDf.select('Translated_Review')
 wordsDf = linesDf.select(explode(split(col("Translated_Review"), "\s+")) \
     .alias("word")) \
+     .withColumn('word', cleanWord("word")) \
     .filter(length('word') > 5) \
     .groupBy("word") .count() .sort(desc("count"))
 
-sentimentsDf.show(12)
-
+wordsDf.show(500, False)
 #%% save in proper format
-toptenDf.write.mode("overwrite").partitionBy("category").parquet("output/topten.parquet")
-wordsDf.write.mode("overwrite").parquet("output/wordcount.parquet")
-sentimentsDf.write.mode("overwrite").parquet("output/sentiments.parquet")
+#toptenDf.write.mode("overwrite").partitionBy("category").parquet("output/topten.parquet")
+#wordsDf.write.mode("overwrite").parquet("output/wordcount.parquet")
+#sentimentsDf.write.mode("overwrite").parquet("output/sentiments.parquet")
 #%% 
-toptenDf.show(122) 
+#toptenDf.show(122) 
